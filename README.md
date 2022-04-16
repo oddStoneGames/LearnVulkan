@@ -1,4 +1,4 @@
-# LearnVulkan
+# Learn Vulkan
  Learning Vulkan For The First Time :D
 
 # How To Run
