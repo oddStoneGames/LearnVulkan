@@ -1,5 +1,10 @@
-# Object file
-*.o
+#Directories
+.vs/
+bin/
+bin-int/
 
-# Ada Library Information
-*.ali
+#Files
+*.user
+*.sln
+*.vcxproj
+*.filters
