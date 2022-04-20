@@ -15,6 +15,8 @@ int VulkanRenderer::Initialize(GLFWwindow* window)
 
 	try {
 		m_CreateInstance();
+		if (!m_EnableValidationLayers)
+			m_SetupDebugMessenger();
 		m_GetPhysicalDevice();
 		m_CreateLogicalDevice();
 	}
@@ -31,6 +33,9 @@ int VulkanRenderer::Initialize(GLFWwindow* window)
 /// </summary>
 void VulkanRenderer::Destroy()
 {
+	if (m_EnableValidationLayers) {
+		DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
+	}
 	vkDestroyInstance(m_Instance, nullptr);
 	vkDestroyDevice(m_MainDevice.device, nullptr);
 }
@@ -70,12 +75,31 @@ bool VulkanRenderer::m_CreateInstance()
 	if (!m_CheckInstanceExtensionSupport(&instanceExtensions))
 		throw std::runtime_error("VkInstance Does not support required Extensions.");
 
+	// Add Message Callback Extension if Validation Layer is Enabled.
+	if (m_EnableValidationLayers)
+		instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
 	createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
 	createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-	// TODO: Setup Validation Layers that instance will use.
-	createInfo.enabledLayerCount = 0;
-	createInfo.ppEnabledLayerNames = nullptr;
+	// Create Validation Layers.
+	if (m_EnableValidationLayers)
+	{
+		if(!m_CheckValidationLayersSupport())
+			throw std::runtime_error("Validation Layers Requested, But Not Available!");
+
+		createInfo.enabledLayerCount = static_cast<uint32_t>(m_ValidationLayers.size());
+		createInfo.ppEnabledLayerNames = m_ValidationLayers.data();
+
+		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+		m_PopulateDebugMessengerCreateInfo(debugCreateInfo);
+		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+	}
+	else
+	{
+		createInfo.enabledLayerCount = 0;
+		createInfo.ppEnabledLayerNames = nullptr;
+	}
 
 	// Create Instance.
 	VkResult result = vkCreateInstance(&createInfo, nullptr, &m_Instance);
@@ -83,6 +107,25 @@ bool VulkanRenderer::m_CreateInstance()
 		throw std::runtime_error("Failed To Create Vulkan Instance!");
 
 	return false;
+}
+
+void VulkanRenderer::m_PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+{
+	createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	createInfo.pfnUserCallback = m_DebugCallback;
+}
+
+void VulkanRenderer::m_SetupDebugMessenger()
+{
+	VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+	m_PopulateDebugMessengerCreateInfo(createInfo);
+	
+	if (CreateDebugUtilsMessengerEXT(m_Instance, &createInfo, nullptr, &m_DebugMessenger) != VK_SUCCESS)
+		throw std::runtime_error("failed to set up debug messenger!");
+	
 }
 
 void VulkanRenderer::m_CreateLogicalDevice()
@@ -193,6 +236,36 @@ bool VulkanRenderer::m_CheckPhysicalDeviceSuitable(VkPhysicalDevice device)
 	QueueFamilyIndices indices = m_GetQueueFamilies(device);
 
 	return indices.IsValid();
+}
+
+bool VulkanRenderer::m_CheckValidationLayersSupport()
+{
+	// Get Supported Validation Layers Count.
+	uint32_t layerCount = 0;
+	vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+	// Get The Names Of All The Available Layers.
+	std::vector<VkLayerProperties> availableLayers(layerCount);
+	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+	// Check if everything in Validation Layer Exists in Available Layers.
+	for (const char* layerName : m_ValidationLayers)
+	{
+		bool layerFound = false;
+
+		for (const auto& layerProperties : availableLayers) 
+		{
+			if (strcmp(layerName, layerProperties.layerName) == 0) 
+			{
+				layerFound = true;
+				break;
+			}
+		}
+
+		if (!layerFound) return false;
+	}
+
+	return true;
 }
 
 QueueFamilyIndices VulkanRenderer::m_GetQueueFamilies(VkPhysicalDevice device)
