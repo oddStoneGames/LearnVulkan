@@ -34,12 +34,12 @@ project "LearnVulkan"
         "%{prj.name}/dependencies",
         "LearnVulkan/dependencies/GLFW/include",
         "LearnVulkan/dependencies/GLM",
-        "D:/Vulkan SDK/Include"
+        "D:/Softwares/VulkanSDK/Include"
     }
 
     libdirs 
     {
-        "D:/Vulkan SDK/Lib"
+        "D:/Softwares/VulkanSDK/Lib"
     }
 
     links

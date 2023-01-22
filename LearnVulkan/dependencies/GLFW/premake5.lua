@@ -21,7 +21,7 @@ project "GLFW"
 
     includedirs
     {
-        "D:/Vulkan SDK/Include"
+        "D:/Softwares/VulkanSDK/Include"
     }
 
     filter "system:windows"
